@@ -1,11 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"time"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/HamstimusPrime/cat_facts_api/utils"
 	"github.com/joho/godotenv"
 )
 
@@ -20,32 +22,69 @@ type response struct {
 	Fact      string `json:"fact"`
 }
 
-type  catAPIresult struct{
+type catAPIresult struct {
 	Fact   string `json:"fact"`
 	Length int    `json:"length"`
 }
 
-// Middleware that wraps the handler with apiURL
-func fetchCatFactsMiddleware(apiURL string, handler func(string, http.ResponseWriter, *http.Request)) http.HandlerFunc {
+type metadata struct{
+	ApiURL string
+	Email string
+	Name string
+	Stack string
+	Status string
+}
+
+// Middleware wraps the fetchCatFacts handler function
+func fetchCatFactsMiddleware(metadata metadata, handler func(metadata, http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		handler(apiURL, w, r)
+		handler(metadata, w, r)
 	}
 }
 
-func fetchCatFacts(apiURL string, w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(apiURL)
+func fetchCatFacts(metadata metadata, w http.ResponseWriter, r *http.Request) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	
+	resp, err := client.Get(metadata.ApiURL)
 	if err != nil {
-		log.Fatal(err)
+		utils.RespondWithError(w, http.StatusServiceUnavailable)
+		return
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode > 200 {
-		fmt.Printf("request error! status code: %v\n", resp.StatusCode)
+	var catFact catAPIresult
+	if err := json.NewDecoder(resp.Body).Decode(&catFact); err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError)
 		return
 	}
 
-	//parse response body from JSON to GO Struct
-	fmt.Print("request made to server\n")
+	response := response{
+		Status: metadata.Status,
+		User: struct {
+			Email string `json:"email"`
+			Name  string `json:"name"`
+			Stack string `json:"stack"`
+		}{
+			Email: metadata.Email,
+			Name:  metadata.Name,
+			Stack: metadata.Stack,
+		},
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Fact:     catFact.Fact,
+	}
+
+	respondWithJSON(response,w,200)
+}
+
+func respondWithJSON(responseObject interface{}, w http.ResponseWriter, HTTPstatus int){
+	respJSON, err := json.Marshal(responseObject)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(HTTPstatus)
+	w.Write([]byte(respJSON))
 }
 
 func main() {
@@ -53,11 +92,19 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	//find a way to pass the apiURL to the function
-	apiURL := os.Getenv("API_URL")
+
+	metadata := metadata{
+		ApiURL: os.Getenv("API_URL"),
+		Email: os.Getenv("EMAIL"),
+		Name: os.Getenv("NAME"),
+		Stack: os.Getenv("STACK"),
+		Status: os.Getenv("STATUS"),
+	}
+
+
 	port := os.Getenv("PORT")
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /me", fetchCatFactsMiddleware(apiURL, fetchCatFacts))
+	mux.HandleFunc("GET /me", fetchCatFactsMiddleware(metadata, fetchCatFacts))
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -67,16 +114,3 @@ func main() {
 	log.Printf("server running on port: %v\n", port)
 	log.Fatal(server.ListenAndServe())
 }
-
-
-
-// {
-//   "status": "success",
-//   "user": {
-//     "email": "<your email>",
-//     "name": "<your full name>",
-//     "stack": "<your backend stack>"
-//   },
-//   "timestamp": "<current UTC time in ISO 8601 format>",
-//   "fact": "<random cat fact from Cat Facts API>"
-// }
