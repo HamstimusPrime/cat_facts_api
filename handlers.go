@@ -3,10 +3,12 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/HamstimusPrime/cat_facts_api/utils"
 )
+
 // Middleware wraps the fetchCatFacts handler function
 func fetchCatFactsMiddleware(metadata metadata, handler func(metadata, http.ResponseWriter, *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -15,7 +17,8 @@ func fetchCatFactsMiddleware(metadata metadata, handler func(metadata, http.Resp
 }
 
 func fetchCatFacts(metadata metadata, w http.ResponseWriter, r *http.Request) {
-	client := &http.Client{Timeout: 5 * time.Second}
+	timeOut,_ := strconv.Atoi(metadata.Timeout)
+	client := &http.Client{Timeout: time.Duration(timeOut) * time.Second}
 
 	resp, err := client.Get(metadata.ApiURL)
 	if err != nil {

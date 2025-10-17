@@ -8,8 +8,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -17,11 +15,12 @@ func main() {
 	}
 
 	metadata := metadata{
-		ApiURL: os.Getenv("API_URL"),
-		Email:  os.Getenv("EMAIL"),
-		Name:   os.Getenv("NAME"),
-		Stack:  os.Getenv("STACK"),
-		Status: os.Getenv("STATUS"),
+		ApiURL:  os.Getenv("API_URL"),
+		Email:   os.Getenv("EMAIL"),
+		Name:    os.Getenv("NAME"),
+		Stack:   os.Getenv("STACK"),
+		Timeout: os.Getenv("TIMEOUT_DURATION"),
+		Status:  os.Getenv("STATUS"),
 	}
 
 	port := os.Getenv("PORT")

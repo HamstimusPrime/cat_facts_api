@@ -16,10 +16,11 @@ type catAPIresult struct {
 	Length int    `json:"length"`
 }
 
-type metadata struct{
+type metadata struct {
 	ApiURL string
-	Email string
-	Name string
-	Stack string
+	Email  string
+	Name   string
+	Stack  string
+	Timeout string
 	Status string
 }
